@@ -52,4 +52,14 @@ io.on("connection", socket => {
 });
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log(`Server on port ${PORT}`));
+server.listen(PORT, () => {
+  console.log(`Server on port ${PORT}`);
+
+  // Keep Render free tier awake by pinging self every 10 minutes
+  setInterval(() => {
+    const https = require("https");
+    https.get("https://chat-signaling-server-5l9z.onrender.com", res => {
+      console.log("Keep-alive ping:", res.statusCode);
+    }).on("error", () => {});
+  }, 10 * 60 * 1000);
+});
