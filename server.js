@@ -10,50 +10,36 @@ const io     = new Server(server, {
 
 app.get("/", (req, res) => res.send("Signaling server running."));
 
-// Track rooms: roomId -> { socketId -> username }
 const rooms = {};
 
 io.on("connection", socket => {
   console.log("Connected:", socket.id);
 
-  // Join a call room
   socket.on("join-call", ({ roomId, username }) => {
     socket.data.username = username;
     socket.data.roomId   = roomId;
 
     if (!rooms[roomId]) rooms[roomId] = {};
 
-    // Tell the newcomer about everyone already in the room
+    // Tell newcomer about everyone already in room
     Object.entries(rooms[roomId]).forEach(([existingId, existingName]) => {
-      socket.emit("user-joined", { socketId: existingId, username: existingName });
+      socket.emit("existing-user", { socketId: existingId, username: existingName });
     });
 
-    // Add newcomer to the room
+    // Add newcomer
     rooms[roomId][socket.id] = username;
     socket.join(roomId);
 
-    // Tell everyone else in the room about the newcomer
+    // Tell everyone else about newcomer
     socket.to(roomId).emit("user-joined", { socketId: socket.id, username });
 
-    console.log(`${username} joined call room: ${roomId}`);
+    console.log(`${username} joined call: ${roomId}`);
   });
 
-  // Relay WebRTC offer
-  socket.on("offer", ({ to, offer }) => {
-    io.to(to).emit("offer", { from: socket.id, username: socket.data.username, offer });
-  });
+  socket.on("offer",         ({ to, offer })     => io.to(to).emit("offer",         { from: socket.id, username: socket.data.username, offer }));
+  socket.on("answer",        ({ to, answer })    => io.to(to).emit("answer",        { from: socket.id, answer }));
+  socket.on("ice-candidate", ({ to, candidate }) => io.to(to).emit("ice-candidate", { from: socket.id, candidate }));
 
-  // Relay WebRTC answer
-  socket.on("answer", ({ to, answer }) => {
-    io.to(to).emit("answer", { from: socket.id, answer });
-  });
-
-  // Relay ICE candidates
-  socket.on("ice-candidate", ({ to, candidate }) => {
-    io.to(to).emit("ice-candidate", { from: socket.id, candidate });
-  });
-
-  // Handle disconnect
   socket.on("disconnect", () => {
     const { roomId, username } = socket.data;
     if (roomId && rooms[roomId]) {
@@ -66,4 +52,4 @@ io.on("connection", socket => {
 });
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+server.listen(PORT, () => console.log(`Server on port ${PORT}`));
