@@ -36,9 +36,18 @@ io.on("connection", socket => {
     console.log(`${username} joined call: ${roomId}`);
   });
 
-  socket.on("offer",         ({ to, offer })     => io.to(to).emit("offer",         { from: socket.id, username: socket.data.username, offer }));
+ socket.on("offer",         ({ to, offer })     => io.to(to).emit("offer",         { from: socket.id, username: socket.data.username, offer }));
   socket.on("answer",        ({ to, answer })    => io.to(to).emit("answer",        { from: socket.id, answer }));
   socket.on("ice-candidate", ({ to, candidate }) => io.to(to).emit("ice-candidate", { from: socket.id, candidate }));
+
+  socket.on("leave-call", ({ roomId, username }) => {
+    if (rooms[roomId]) {
+      delete rooms[roomId][socket.id];
+      if (Object.keys(rooms[roomId]).length === 0) delete rooms[roomId];
+    }
+    socket.to(roomId).emit("user-left", { socketId: socket.id, username });
+    socket.leave(roomId);
+  });
 
   socket.on("disconnect", () => {
     const { roomId, username } = socket.data;
